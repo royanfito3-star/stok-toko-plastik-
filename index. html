@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stok Barang Toko Plastik</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #e8f5e9; }
+        h1 { text-align: center; color: #1b5e20; }
+        .container { max-width: 900px; margin: auto; }
+        .section { margin-bottom: 30px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { color: #2e7d32; }
+        form { display: grid; gap: 10px; }
+        label { font-weight: bold; }
+        input, select, button { padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; }
+        button { background-color: #4caf50; color: white; font-weight: bold; cursor: pointer; }
+        button:hover { background-color: #388e3c; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #a5d6a7; padding: 12px; text-align: left; }
+        th { background-color: #4caf50; color: white; }
+        tr:nth-child(even) { background-color: #f1f8e9; }
+        .history { font-size: 0.85em; color: #555; max-height: 100px; overflow-y: auto; }
+        @media (max-width: 600px) {
+            form { grid-template-columns: 1fr; }
+            table, thead, tbody, th, td, tr { display: block; }
+            th { display: none; }
+            td { border: none; border-bottom: 1px solid #ddd; position: relative; padding-left: 50%; }
+            td:before { content: attr(data-label); position: absolute; left: 10px; font-weight: bold; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Manajemen Stok Toko Plastik</h1>
+
+        <div class="section">
+            <h2>Tambah Barang Baru</h2>
+            <form id="addItemForm">
+                <label for="itemName">Nama Barang (contoh: Kantong Plastik 1kg)</label>
+                <input type="text" id="itemName" placeholder="Masukkan nama barang" required>
+                <label for="initialStock">Stok Awal</label>
+                <input type="number" id="initialStock" min="0" value="0" required>
+                <button type="submit">Tambah Barang</button>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>Input / Output Stok</h2>
+            <form id="transactionForm">
+                <label for="itemSelect">Pilih Barang</label>
+                <select id="itemSelect" required></select>
+                <label for="quantity">Jumlah</label>
+                <input type="number" id="quantity" min="1" required>
+                <label for="type">Tipe Transaksi</label>
+                <select id="type" required>
+                    <option value="input">Input (Barang Masuk)</option>
+                    <option value="output">Output (Penjualan/Keluar)</option>
+                </select>
+                <label for="note">Catatan (opsional)</label>
+                <input type="text" id="note" placeholder="Contoh: Pembelian dari supplier">
+                <button type="submit">Proses Transaksi</button>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>Daftar Stok Saat Ini</h2>
+            <table id="stockTable">
+                <thead>
+                    <tr>
+                        <th>Nama Barang</th>
+                        <th>Stok Saat Ini</th>
+                        <th>Riwayat Transaksi (10 terakhir)</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let items = JSON.parse(localStorage.getItem('tokoPlastikItems')) || [];
+
+        function updateSelect() {
+            const select = document.getElementById('itemSelect');
+            select.innerHTML = '<option value="">-- Pilih Barang --</option>';
+            items.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.name;
+                option.textContent = item.name + ` (Stok: ${item.stock})`;
+                select.appendChild(option);
+            });
+        }
+
+        function updateTable() {
+            const tbody = document.querySelector('#stockTable tbody');
+            tbody.innerHTML = '';
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Belum ada barang. Tambah barang baru dulu!</td></tr>';
+                return;
+            }
+            items.sort((a, b) => a.name.localeCompare(b.name));
+            items.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td data-label="Barang">${item.name}</td>
+                    <td data-label="Stok">${item.stock} unit</td>
+                    <td data-label="Riwayat" class="history">
+                        ${item.history.length > 0 
+                            ? item.history.map(h => `<div>• ${h.date} | ${h.type} ${h.quantity} unit ${h.note ? '(' + h.note + ')' : ''}</div>`).join('')
+                            : '<em>Tanpa riwayat</em>'
+                        }
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function saveItems() {
+            localStorage.setItem('tokoPlastikItems', JSON.stringify(items));
+            updateSelect();
+            updateTable();
+        }
+
+        document.getElementById('addItemForm').addEventListener('submit', e => {
+            e.preventDefault();
+            const name = document.getElementById('itemName').value.trim();
+            const stock = parseInt(document.getElementById('initialStock').value);
+            if (!name) return alert('Nama barang wajib diisi!');
+            if (items.find(i => i.name.toLowerCase() === name.toLowerCase())) {
+                return alert('Barang dengan nama tersebut sudah ada!');
+            }
+            items.push({ name, stock, history: [] });
+            saveItems();
+            alert(`Barang "${name}" berhasil ditambahkan dengan stok awal ${stock}!`);
+            e.target.reset();
+        });
+
+        document.getElementById('transactionForm').addEventListener('submit', e => {
+            e.preventDefault();
+            const name = document.getElementById('itemSelect').value;
+            const quantity = parseInt(document.getElementById('quantity').value);
+            const type = document.getElementById('type').value;
+            const note = document.getElementById('note').value.trim();
+            const item = items.find(i => i.name === name);
+            if (!item) return;
+
+            const date = new Date().toLocaleString('id-ID');
+            if (type === 'output' && item.stock < quantity) {
+                return alert('Stok tidak cukup!');
+            }
+
+            if (type === 'input') item.stock += quantity;
+            else item.stock -= quantity;
+
+            item.history.push({ date, type: type === 'input' ? 'Input' : 'Output', quantity, note });
+            if (item.history.length > 10) item.history.shift();
+
+            saveItems();
+            alert('Transaksi berhasil diproses!');
+            e.target.reset();
+        });
+
+        // Inisialisasi saat halaman dibuka
+        updateSelect();
+        updateTable();
+    </script>
+</body>
+</html>
